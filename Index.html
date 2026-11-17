@@ -33,6 +33,7 @@ summary{cursor:pointer}
 <div class="row" id="tabs"></div>
 <div class="row" id="rng"></div>
 <div class="row" id="kind"></div>
+<div class="row" id="ek"></div>
 <div class="row" id="cats"></div>
 <div class="row" id="gi"></div>
 <div id="app"></div>
@@ -313,11 +314,13 @@ const PQRAW=`仮|次の文の句形は？|王如善之、則何為不行。|仮�
 倒|次の文の句形は？|今事無疑、何卜之為。|倒置の形‖比況の形‖抑揚の形‖仮定の形|この文は「倒置の形」。今事疑ひ無し、何の卜をか之れ為さん。／今万事疑いない、どんな占いもしようか（いや、しない）。
 倒|次の文の句形は？|不我知。|倒置の形‖比較の形‖選択の形‖限定の形|この文は「倒置の形」。我を知らず。／私を知らない。
 倒|次の文の句形は？|此之謂也。|倒置の形‖比況の形‖限定の形‖累加の形|この文は「倒置の形」。此を之れ謂ふなり。／このことをいうのである。`;
-const D=RAW.split('\n').map((l,i)=>{const[c,n,f,r,m,s,k,t,o]=l.split('|');return{i,c,n,f,r,m,s,k,t,o:o||'',g:i>=121?'2':(i>=114||i===91)?'12':'1'}});
+const OTH=[49,51,52,53,54,55,103,118,120],seenE={};
+const D=RAW.split('\n').map((l,i)=>{const[c,n,f,r,m,s,k,t,o]=l.split('|');return{i,c,n,f,r,m,s,k,t,o:o||'',g:i>=121?'2':(i>=114||i===91)?'12':'1',mn:!OTH.includes(i)}});
 for(let k=0;k<40;k++)D.push({i:D.length,c:'',n:'',f:'',r:'',m:'',s:'',k:'',t:'',o:'',g:'',x:1});
-EXRAW.split('\n').forEach(l=>{const[c,rf,s,k,t,o]=l.split('|'),b=D[+rf];D.push({i:D.length,c,n:b.n,f:b.f,r:b.r,m:b.m,s,k,t,o,g:'2',e:1,ref:+rf})});
+EXRAW.split('\n').forEach(l=>{const[c,rf,s,k,t,o]=l.split('|'),b=D[+rf];D.push({i:D.length,c,n:b.n,f:b.f,r:b.r,m:b.m,s,k,t,o,g:'2',e:1,ref:+rf,mn:!(seenE[rf]=(seenE[rf]||0)+1)||seenE[rf]===1})});
 PQRAW.split('\n').forEach(l=>{const[c,lb,q,o,e]=l.split('|');D.push({i:D.length,c,n:'練習：'+lb,f:q,r:'',m:e,s:'',k:'',t:'',o:'',g:'2',p:{o:o.split('‖')}})});
-let rg='all',kd='all',gi='all';
+let rg='all',kd='all',gi='all',ek='all';
+let ST={};try{ST=JSON.parse(localStorage.getItem('kb-star')||'{}')}catch(e){}
 const CN={all:'全部',否:'否定',使:'使役',受:'受身',疑:'疑問',反:'反語',詠:'詠嘆',再:'再読文字',願:'願望',練:'練習',仮:'仮定',較:'比較',況:'比況',選:'選択',限:'限定',累:'累加',抑:'抑揚',倒:'倒置'};
 let tab='auto',cat='all',mode='f',idx=0,flip=false,deck=[],q=null,ex=null,sc=[0,0],last=-1,cur=null,curMd='f',jd={h:null,m:null};
 let LG={},plan=null,dbc=null,base='',sync='この端末のみ（Claudeには届いていません）',wq=Promise.resolve();
@@ -348,8 +351,11 @@ function status(i){if(!att(i))return '未学習';const p=pri(i);return p>=6?'苦
 const W=i=>.2+pri(i)**2/10;
 function wpick(p,exc){const c=p.filter(d=>d.i!==exc),a=c.length?c:p;let r=Math.random()*a.reduce((s,d)=>s+W(d.i),0);for(const d of a){r-=W(d.i);if(r<=0)return d}return a[a.length-1]}
 function wsample(p,n){let a=[...p],o=[];while(o.length<n&&a.length){const d=wpick(a,-1);o.push(d);a=a.filter(x=>x!==d)}return o}
+const isMain=d=>ST[d.i]!=null?!!ST[d.i]:!!d.mn;
+function toggleStar(i){ST[i]=isMain(D[i])?0:1;try{localStorage.setItem('kb-star',JSON.stringify(ST))}catch(e){}if(dbc)dbc.doc(base+'/star').set({s:ST}).catch(()=>{});draw()}
+const starBtn=d=>d.s?`<button style="font-size:13px;padding:3px 10px;margin:2px 0" onclick="toggleStar(${d.i})">${isMain(d)?'★ 特に覚えたい例文':'☆ その他の例文'}（押して切り替え）</button>`:'';
 const R=()=>D.filter(d=>!d.x&&(rg==='all'||d.g.includes(rg)));
-const pool=()=>R().filter(d=>(gi==='all'||d.i==gi||d.ref==gi||(d.p&&d.c===D[gi].c&&kd!=='g'&&kd!=='s'))&&(cat==='all'||d.c===cat)&&(kd==='all'||(kd==='p'?d.p:kd==='s'?(!d.p&&d.s):(!d.p&&!d.e))));
+const pool=()=>R().filter(d=>(gi==='all'||d.i==gi||d.ref==gi||(d.p&&d.c===D[gi].c&&kd!=='g'&&kd!=='s'))&&(cat==='all'||d.c===cat)&&(kd==='all'||(kd==='p'?d.p:kd==='s'?(!d.p&&d.s&&(ek==='all'||isMain(d)===(ek==='m'))):(!d.p&&!d.e))));
 function setDeck(){const p=pool();deck=wsample(p,p.length);idx=0;flip=false;jd={h:null,m:null}}
 function head(){
  const B=(arr,cur,v)=>arr.map(([k,t])=>`<button class="${cur===k?'on':''}" onclick="${v}='${k}';go()">${t}</button>`).join('');
@@ -357,23 +363,25 @@ function head(){
  $('tabs').innerHTML=B([['auto','おまかせ'],['card','カード'],['quiz','4択'],['list','一覧'],['exam','総合20問']],tab,'tab');
  $('rng').innerHTML=B([['all','全範囲'],['1','1次'],['2','2次考査範囲']],rg,'rg');
  $('kind').innerHTML=B([['all','全部'],['g','文法'],['s','例文'],['p','練習問題']],kd,'kd');
+ $('ek').innerHTML=B([['all','例文すべて'],['m','★特に覚えたい'],['o','その他の例文']],ek,'ek');
  $('cats').innerHTML=B(Object.keys(CN).filter(k=>k==='all'||pr.has(k)).map(k=>[k,CN[k]]),cat,'cat');
  $('gi').innerHTML=`<select onchange="gi=this.value;setDeck();q=null;ex=null;cur=null;sc=[0,0];window.head();draw()"><option value="all">各句形を選ぶ（全部）</option>${R().filter(d=>!d.p&&!d.e&&(cat==='all'||d.c===cat)).map(d=>`<option value="${d.i}"${gi==d.i?' selected':''}>${esc(CN[d.c])}｜${esc(d.f)}</option>`).join('')}</select>`;
  $('kind').style.display=$('cats').style.display=$('gi').style.display=(tab==='auto'||tab==='exam')?'none':'';
+ $('ek').style.display=(kd==='s'&&tab!=='auto'&&tab!=='exam')?'':'none';
 }
 function go(){gi='all';head();setDeck();q=null;ex=null;cur=null;sc=[0,0];draw()}
 function stats(){const c={未学習:0,苦手:0,学習中:0,定着:0},r=R();r.forEach(d=>c[status(d.i)]++);return `<div class="stat"><span>定着 ${c.定着}</span><span>学習中 ${c.学習中}</span><span>苦手 ${c.苦手}</span><span>未学習 ${c.未学習}</span></div><div class="bar"><i style="width:${c.定着/r.length*100}%"></i></div><div class="tag">記録：${esc(sync)}</div>`}
 function judgeUI(d){const row=(f,l)=>`<div class="judge"><b>${l}</b><button class="${jd[f]===0?'on':''}" onclick="jd.${f}=0;draw()">わからなかった</button><button class="${jd[f]===1?'on':''}" onclick="jd.${f}=1;draw()">わかった</button></div>`;if(d.p)return row('m','この問題');return `<div class="judge"><button onclick="jd={h:1,m:1};draw()">両方わかった</button><button onclick="jd={h:0,m:0};draw()">両方わからなかった</button></div>`+row('h','書き下し')+row('m','意味')}
 const lbl=d=>d.p?d.n.replace('練習：',''):'';
 const expl=d=>d.p?`<div>正解：<span class="k">${d.p.o[0]}</span></div><div class="sub">${d.m}</div>`:`${d.n}：${d.f}（${d.r}）${exb(d)}`;
-const ttl=d=>d.e?`例文　<span class="sub">${d.s}</span>`:d.p?`練習　<span class="sub">${d.f}</span>`:`${d.n}　<span class="sub">${d.m}</span>`;
+const ttl=d=>d.e?`${isMain(d)?'★':''}例文　<span class="sub">${d.s}</span>`:d.p?`練習　<span class="sub">${d.f}</span>`:`${d.s&&isMain(d)?'★':''}${d.n}　<span class="sub">${d.m}</span>`;
 function cardHTML(d,md,nextFn){
  let front,back;
  if(d.p){const cs=d.p.cs||(d.p.cs=shuf(d.p.o));front=`<div class="tag">練習問題　${lbl(d)}</div><div class="big">${d.f}</div><div class="sub">${cs.map((x,j)=>'①②③④'[j]+' '+x).join('<br>')}</div>`;back=expl(d)}
  else{
  front=md==='f'?`<div class="tag">構文 → 書き下し・意味</div><div class="big">${d.f}</div><div class="sub">${d.n}</div>`:`<div class="tag">例文 → 書き下し・意味</div><div class="big">${d.s}</div>`;
  back=md==='f'?`<div>書き下し：<span class="k">${d.r}</span></div><div>意味：${d.m}</div>${d.o?`<div class="sub">${d.o}</div>`:''}${exb(d)}`:`<div>書き下し：<span class="k">${d.k}</span></div><div>意味：${d.t}</div><div class="sub">${d.n}：${d.f}（${d.r}）</div>`}
- return `<div class="card"><div class="tag">${status(d.i)}${d.g==='2'?'　2次':''}</div>${front}${flip?'<hr style="border:0;border-top:1px solid var(--line)">'+back+judgeUI(d)+'<div class="sub">選ばずに次へ進むと「わからなかった」として記録されます。</div>'+`<div class="act"><button onclick="${nextFn}">記録して次へ</button></div>`:'<div class="act"><button onclick="flip=true;warn=false;draw()">答えを見る</button></div>'}</div>`}
+ return `<div class="card"><div class="tag">${status(d.i)}${d.g==='2'?'　2次':''}</div>${starBtn(d)}${front}${flip?'<hr style="border:0;border-top:1px solid var(--line)">'+back+judgeUI(d)+'<div class="sub">選ばずに次へ進むと「わからなかった」として記録されます。</div>'+`<div class="act"><button onclick="${nextFn}">記録して次へ</button></div>`:'<div class="act"><button onclick="flip=true;warn=false;draw()">答えを見る</button></div>'}</div>`}
 let warn=false;
 const nj=d=>jd.h===null&&jd.m===null;
 function skipJ(f){jd={h:null,m:null};warn=false;if(f==='nextAuto'){last=cur.i;cur=null}else idx++;flip=false;draw()}
@@ -389,7 +397,7 @@ function draw(){
   const msg=plan&&plan.msg?`<div class="ex"><div class="tag">Claudeからのコメント${plan.at?'　'+new Date(plan.at).toLocaleDateString('ja-JP'):''}</div>${esc(plan.msg)}</div>`:'';
   a.innerHTML=prog+msg+cardHTML(cur,curMd,'nextAuto()');return}
  if(!p.length){a.innerHTML=prog+'<div class="card">この条件の項目はありません。別の絞り込みを選んでください。</div>';return}
- if(tab==='list'){a.innerHTML=prog+p.map(d=>{const e=LG[d.i]||{h:[],m:[]};return `<details><summary><span class="badge">${status(d.i)}</span>${ttl(d)}</summary>${d.p?`<div class="big" style="font-size:18px">${d.f}</div><div class="sub">${d.p.o.map(x=>'・'+x).join('<br>')}</div>`+expl(d):`<div class="big" style="font-size:20px">${d.f}</div><div>書き下し：<span class="k">${d.r}</span></div>${d.o?`<div class="sub">${d.o}</div>`:''}${exb(d)}`}<div class="tag">${d.p?'':'書き下し '+e.h.map(x=>x[1]?'○':'×').join('')+'　'}意味 ${e.m.map(x=>x[1]?'○':'×').join('')||'—'}</div></details>`}).join('')+`<details><summary>記録をチャットに貼る用</summary><textarea readonly onclick="this.select()">${esc(exportText())}</textarea></details>`;return}
+ if(tab==='list'){a.innerHTML=prog+p.map(d=>{const e=LG[d.i]||{h:[],m:[]};return `<details><summary><span class="badge">${status(d.i)}</span>${ttl(d)}</summary>${d.p?`<div class="big" style="font-size:18px">${d.f}</div><div class="sub">${d.p.o.map(x=>'・'+x).join('<br>')}</div>`+expl(d):`<div class="big" style="font-size:20px">${d.f}</div><div>書き下し：<span class="k">${d.r}</span></div>${d.o?`<div class="sub">${d.o}</div>`:''}${exb(d)}${starBtn(d)}`}<div class="tag">${d.p?'':'書き下し '+e.h.map(x=>x[1]?'○':'×').join('')+'　'}意味 ${e.m.map(x=>x[1]?'○':'×').join('')||'—'}</div></details>`}).join('')+`<details><summary>記録をチャットに貼る用</summary><textarea readonly onclick="this.select()">${esc(exportText())}</textarea></details>`;return}
  if(tab==='card'){
   if(!deck.length)setDeck();const d=deck[idx%deck.length],md=d.e||kd==='s'?'s':kd==='g'?'f':((d.s&&(d.i+idx)%2)?'s':'f');
   a.innerHTML=prog+`<div class="row"><button onclick="setDeck();draw()">並べ直す</button></div><div class="sub">わかった／わからなかった記録をもとに、苦手なカードほど先に出ます。</div><div class="tag">${idx%deck.length+1} / ${deck.length}</div>`+cardHTML(d,md,'nextCard()');return}
@@ -423,6 +431,7 @@ go();
  try{const g=await db.collection(base).get();g.docs.forEach(x=>{const v=x.data();if(!v||v.i==null||!D[v.i])return;const e=LG[v.i]=LG[v.i]||{h:[],m:[]};e.h=merge(e.h,v.h);e.m=merge(e.m,v.m)});const ids=JSON.parse(localStorage.getItem('kb-mig-ids')||'[]');ids.forEach(i=>qWrite(i));if(ids.length)localStorage.setItem('kb-mig-ids','[]')}catch(e){}
 MIG.forEach(i=>qWrite(i));
  db.collection(base).onSnapshot(s=>{s.docs.forEach(x=>{const v=x.data();if(!v||v.i==null||!D[v.i])return;const e=LG[v.i]=LG[v.i]||{h:[],m:[]};e.h=merge(e.h,v.h);e.m=merge(e.m,v.m)});saveLocal();draw()},()=>{sync='同期エラー（この端末には保存済み）';draw()});
+ db.doc(base+'/star').onSnapshot(s=>{if(s.exists&&s.data().s){ST=Object.assign({},ST,s.data().s);try{localStorage.setItem('kb-star',JSON.stringify(ST))}catch(e){}draw()}},()=>{});
  db.doc(base+'/plan').onSnapshot(s=>{plan=s.exists?s.data():null;draw()},()=>{})}catch(e){}})();
 </script></body></html>
 
